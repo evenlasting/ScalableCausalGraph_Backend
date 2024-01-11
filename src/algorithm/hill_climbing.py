@@ -144,8 +144,8 @@ class HillClimbSearch(StructureEstimator):
         black_list=None,
         white_list=None,
         epsilon=1e-4,
-        max_iter=1e6,
-        show_progress=True,
+        max_iter=100,# 1e6,
+        show_progress=False,
     ):
         """
         Performs local hill climb search to estimates the `DAG` structure that

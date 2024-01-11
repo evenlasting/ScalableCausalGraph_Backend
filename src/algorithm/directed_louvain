@@ -1,0 +1,5 @@
+from Louvain.community_louvain import best_partition
+
+
+def directed_louvain(nx_graph):
+    return best_partition(nx_graph)

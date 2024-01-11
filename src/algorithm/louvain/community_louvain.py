@@ -203,10 +203,10 @@ def best_partition(graph,
     partition : dictionnary
        The partition, with communities numbered from 0 to number of communities
 
-    Raises
-    ------
-    NetworkXError
-       If the graph is not undirected.
+    # Raises
+    # ------
+    # NetworkXError
+    #    If the graph is not undirected.
 
     See Also
     --------
@@ -249,6 +249,7 @@ def best_partition(graph,
     >>> nx.draw_networkx_edges(G, pos, alpha=0.5)
     >>> plt.show()
     """
+
     dendo = generate_dendrogram(graph,
                                 partition,
                                 weight,
@@ -321,8 +322,8 @@ def generate_dendrogram(graph,
     :param weight:
     :type weight:
     """
-    if graph.is_directed():
-        raise TypeError("Bad graph type, use only non directed graph")
+    # if graph.is_directed():
+    #     raise TypeError("Bad graph type, use only non directed graph")
 
     # Properly handle random state, eventually remove old `randomize` parameter
     # NOTE: when `randomize` is removed, delete code up to random_state = ...
@@ -348,12 +349,15 @@ def generate_dendrogram(graph,
             part[node] = i
         return [part]
 
+
+
+
     current_graph = graph.copy()
     status = Status()
     status.init(current_graph, weight, part_init)
     status_list = list()
     __one_level(current_graph, status, weight, resolution, random_state)
-    new_mod = __modularity(status, resolution)
+    new_mod = __modularity(status, resolution)-00
     partition = __renumber(status.node2com)
     status_list.append(partition)
     mod = new_mod
@@ -373,7 +377,7 @@ def generate_dendrogram(graph,
     return status_list[:]
 
 
-def induced_graph(partition, graph, weight="weight"):
+def induced_graph(partition, graph, weight="weight", allowCycle = True):
     """Produce the graph where nodes are the communities
 
     there is a link of weight w between communities if the sum of the weights
@@ -408,13 +412,15 @@ def induced_graph(partition, graph, weight="weight"):
     >>> nx.is_isomorphic(ind, goal)
     True
     """
-    ret = nx.Graph()
+    ret = nx.DiGraph()
     ret.add_nodes_from(partition.values())
 
     for node1, node2, datas in graph.edges(data=True):
         edge_weight = datas.get(weight, 1)
         com1 = partition[node1]
         com2 = partition[node2]
+        if not allowCycle:
+            if com1 == com2: continue
         w_prec = ret.get_edge_data(com1, com2, {weight: 0}).get(weight, 1)
         ret.add_edge(com1, com2, **{weight: w_prec + edge_weight})
 
@@ -442,32 +448,32 @@ def __renumber(dictionary):
     return ret
 
 
-def load_binary(data):
-    """Load binary graph as used by the cpp implementation of this algorithm
-    """
-    data = open(data, "rb")
+# def load_binary(data):
+#     """Load binary graph as used by the cpp implementation of this algorithm
+#     """
+#     data = open(data, "rb")
 
-    reader = array.array("I")
-    reader.fromfile(data, 1)
-    num_nodes = reader.pop()
-    reader = array.array("I")
-    reader.fromfile(data, num_nodes)
-    cum_deg = reader.tolist()
-    num_links = reader.pop()
-    reader = array.array("I")
-    reader.fromfile(data, num_links)
-    links = reader.tolist()
-    graph = nx.Graph()
-    graph.add_nodes_from(range(num_nodes))
-    prec_deg = 0
+#     reader = array.array("I")
+#     reader.fromfile(data, 1)
+#     num_nodes = reader.pop()
+#     reader = array.array("I")
+#     reader.fromfile(data, num_nodes)
+#     cum_deg = reader.tolist()
+#     num_links = reader.pop()
+#     reader = array.array("I")
+#     reader.fromfile(data, num_links)
+#     links = reader.tolist()
+#     graph = nx.DiGraph()
+#     graph.add_nodes_from(range(num_nodes))
+#     prec_deg = 0
 
-    for index in range(num_nodes):
-        last_deg = cum_deg[index]
-        neighbors = links[prec_deg:last_deg]
-        graph.add_edges_from([(index, int(neigh)) for neigh in neighbors])
-        prec_deg = last_deg
+#     for index in range(num_nodes):
+#         last_deg = cum_deg[index]
+#         neighbors = links[prec_deg:last_deg]
+#         graph.add_edges_from([(index, int(neigh)) for neigh in neighbors])
+#         prec_deg = last_deg
 
-    return graph
+#     return graph
 
 
 def __one_level(graph, status, weight_key, resolution, random_state):
@@ -489,10 +495,12 @@ def __one_level(graph, status, weight_key, resolution, random_state):
             neigh_communities = __neighcom(node, graph, status, weight_key)
             remove_cost = - neigh_communities.get(com_node,0) + \
                 resolution * (status.degrees.get(com_node, 0.) - status.gdegrees.get(node, 0.)) * degc_totw
+            # update this 
             __remove(node, com_node,
                      neigh_communities.get(com_node, 0.), status)
             best_com = com_node
             best_increase = 0
+            #遍历邻接社区，需要和删除的node直接相连
             for com, dnc in __randomize(neigh_communities.items(), random_state):
                 incr = remove_cost + dnc - \
                        resolution * status.degrees.get(com, 0.) * degc_totw
@@ -549,10 +557,12 @@ def __modularity(status, resolution):
     links = float(status.total_weight)
     result = 0.
     for community in set(status.node2com.values()):
-        in_degree = status.internals.get(community, 0.)
-        degree = status.degrees.get(community, 0.)
+        internal_weight = status.internals.get(community, 0.)
+        in_degree = status.in_degrees.get(community, 0.)
+        out_degree = status.out_degrees.get(community, 0.)
         if links > 0:
-            result += in_degree * resolution / links -  ((degree / (2. * links)) ** 2)
+            # result += internal_weight * resolution / links -  ((degree / (2. * links)) ** 2)
+            result += internal_weight * resolution / links -  (in_degree /  links) * ( out_degree / links)
     return result
 
 
